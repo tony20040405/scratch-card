@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>專屬刮刮樂 💖</title>
+<style>
+:root{--bg:#fff1f4;--fg:#4a2230;--card:#fff;--accent:#e8557a;--muted:#a77585;--line:#f2cdd7;--shadow:rgba(232,85,122,.25);
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#1d1217;--fg:#fbe4ea;--card:#2b1b22;--accent:#ff7a9c;--muted:#b88c9a;--line:#4a2f3a;--shadow:rgba(255,122,156,.2)}}
+:root[data-theme="dark"]{--bg:#1d1217;--fg:#fbe4ea;--card:#2b1b22;--accent:#ff7a9c;--muted:#b88c9a;--line:#4a2f3a;--shadow:rgba(255,122,156,.2)}
+*{box-sizing:border-box}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;min-height:100vh;background:var(--bg);color:var(--fg);font-family:"PingFang TC","Noto Sans TC","Microsoft JhengHei",system-ui,sans-serif;display:flex;flex-direction:column;align-items:center;padding:28px 18px;text-align:center;overflow-x:hidden}
+h1{font-size:1.7rem;margin:6px 0 4px}
+.sub{color:var(--muted);margin:0 0 22px;font-size:.95rem}
+.wrap{position:relative;width:min(100%,340px);aspect-ratio:4/3;background:var(--card);border-radius:20px;box-shadow:0 10px 30px var(--shadow);overflow:hidden;touch-action:none}
+.prize{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;padding:12px}
+.prize .e{font-size:3.2rem}
+.prize .t{font-size:1.25rem;font-weight:700;color:var(--accent)}
+canvas{position:absolute;inset:0;width:100%;height:100%;cursor:grab;transition:opacity .6s}
+canvas.done{opacity:0;pointer-events:none}
+.info{margin:18px 0 10px;color:var(--muted);min-height:1.4em;font-size:.95rem}
+button{background:var(--accent);color:#fff;border:0;border-radius:999px;padding:12px 28px;font-size:1rem;font-weight:600;cursor:pointer;box-shadow:0 6px 16px var(--shadow);transition:transform .15s,opacity .2s;font-family:inherit}
+button:active{transform:scale(.96)}
+button:disabled{opacity:.4;cursor:default}
+button.ghost{background:transparent;color:var(--accent);box-shadow:none;border:1.5px solid var(--accent);padding:8px 16px;font-size:.9rem}
+#adminBtn{position:fixed;right:14px;top:calc(env(safe-area-inset-top,0px) + 10px);z-index:5}
+.fx{position:fixed;top:-30px;font-size:1.6rem;pointer-events:none;animation:fall 2.4s linear forwards;z-index:9}
+@keyframes fall{to{transform:translateY(110vh) rotate(360deg);opacity:.6}}
+#admin{width:min(100%,520px);margin-top:28px;background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px;text-align:left}
+#admin h2{font-size:1.1rem;margin:0 0 10px;color:var(--accent)}
+#admin h3{font-size:.95rem;margin:16px 0 6px}
+#admin input{width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--fg);font-size:.95rem;font-family:inherit}
+.row{display:grid;grid-template-columns:52px 1fr 64px 36px;gap:6px;margin-bottom:6px;align-items:center}
+.row button{padding:6px 0;font-size:.9rem;border-radius:8px;box-shadow:none}
+.hint{color:var(--muted);font-size:.8rem;margin:4px 0}
+.bar{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;align-items:center}
+.hist{font-size:.85rem;color:var(--muted);max-height:160px;overflow:auto;border-top:1px dashed var(--line);padding-top:6px}
+.hist div{padding:2px 0}
+[hidden]{display:none!important}
+</style>
+</head>
+<body>
+<button id="adminBtn" class="ghost" hidden>⚙️ 後台</button>
+<h1 id="title"></h1>
+<p class="sub" id="sub"></p>
+<div class="wrap" id="wrap">
+  <div class="prize"><div class="e" id="pe"></div><div class="t" id="pt"></div></div>
+  <canvas id="cv"></canvas>
+</div>
+<div class="info" id="info"></div>
+<button id="next" disabled>再刮一張 🎟️</button>
+
+<section id="admin" hidden>
+  <h2>⚙️ 後台管理(只有你看得到)</h2>
+  <div class="hint">標題</div><input id="aTitle" maxlength="40">
+  <div class="hint" style="margin-top:8px">說明文字</div><input id="aSub" maxlength="80">
+  <h3>獎品清單</h3>
+  <div class="hint">權重越大越容易抽到(例如 3 的機率是 1 的三倍),設 0 代表暫時不會出現。</div>
+  <div id="rows"></div>
+  <div class="bar">
+    <button class="ghost" id="addRow">＋ 新增獎品</button>
+    <button class="ghost" id="resetBtn">還原預設</button>
+    <button id="saveBtn">儲存</button>
+    <span class="hint" id="status"></span>
+  </div>
+  <h3>最近抽到的紀錄</h3>
+  <div class="hist" id="hist">尚無紀錄</div>
+  <div class="hint">紀錄需要對方的權限是「Contributor」以上才會寫入。</div>
+</section>
+
+<script>
+const DEFAULT = {
+  title: "💖 專屬刮刮樂",
+  subtitle: "用手指(或滑鼠)刮開銀色的部分,看看你抽到什麼!",
+  prizes: [
+    {e:"🤗", t:"超大擁抱一次", w:2},
+    {e:"🍽️", t:"指定晚餐一次", w:1},
+    {e:"💆", t:"按摩 10 分鐘", w:1},
+    {e:"🧽", t:"免洗碗券一張", w:1},
+    {e:"🎬", t:"電影約會一次", w:1},
+    {e:"🧋", t:"飲料請客一杯", w:2},
+    {e:"🌟", t:"任意願望一個", w:1},
+    {e:"😜", t:"謝謝參加…才怪!再刮一張", w:1}
+  ]
+};
+const REVEAL_AT = 0.55;
+let cfg = JSON.parse(JSON.stringify(DEFAULT)), db = null, isAdmin = false, current = null;
+
+const $ = id => document.getElementById(id);
+const cv = $("cv"), ctx = cv.getContext("2d"), wrap = $("wrap"), nextBtn = $("next"), info = $("info");
+let drawing = false, revealed = false, last = null, count = 0, moves = 0;
+
+function applyText(){ $("title").textContent = cfg.title; $("sub").textContent = cfg.subtitle; }
+function pick(){
+  const list = cfg.prizes.filter(p => p && p.t && Number(p.w) > 0);
+  const pool = list.length ? list : DEFAULT.prizes;
+  let r = Math.random() * pool.reduce((s,p)=>s+Number(p.w),0);
+  for(const p of pool){ r -= Number(p.w); if(r <= 0) return p; }
+  return pool[pool.length-1];
+}
+function paint(){
+  const r = wrap.getBoundingClientRect(), d = window.devicePixelRatio||1;
+  cv.width = r.width*d; cv.height = r.height*d; ctx.setTransform(d,0,0,d,0,0);
+  ctx.globalCompositeOperation = "source-over";
+  const g = ctx.createLinearGradient(0,0,r.width,r.height);
+  g.addColorStop(0,"#c9ccd3"); g.addColorStop(.5,"#eef0f4"); g.addColorStop(1,"#b7bbc4");
+  ctx.fillStyle = g; ctx.fillRect(0,0,r.width,r.height);
+  ctx.fillStyle = "rgba(120,125,140,.55)"; ctx.font = "600 18px system-ui,sans-serif";
+  ctx.textAlign = "center"; ctx.textBaseline = "middle";
+  ctx.fillText("✨ 刮一刮 ✨", r.width/2, r.height/2);
+}
+function newCard(){
+  current = pick();
+  $("pe").textContent = current.e || "🎁"; $("pt").textContent = current.t;
+  revealed = false; moves = 0; cv.classList.remove("done"); nextBtn.disabled = true;
+  info.textContent = "已刮 " + count + " 張"; paint();
+}
+function pos(e){const r = cv.getBoundingClientRect();return {x:e.clientX-r.left,y:e.clientY-r.top}}
+function scratch(e){
+  if(!drawing||revealed) return;
+  const p = pos(e); ctx.globalCompositeOperation = "destination-out";
+  ctx.lineWidth = 34; ctx.lineCap = ctx.lineJoin = "round"; ctx.beginPath();
+  ctx.moveTo(last.x,last.y); ctx.lineTo(p.x,p.y); ctx.stroke(); last = p;
+  if(++moves % 6 === 0) check();
+}
+function check(){
+  const data = ctx.getImageData(0,0,cv.width,cv.height).data;
+  let clear = 0, total = 0;
+  for(let i=3;i<data.length;i+=64){total++; if(data[i]<128) clear++}
+  if(clear/total >= REVEAL_AT) reveal();
+}
+function reveal(){
+  revealed = true; drawing = false; count++; cv.classList.add("done");
+  info.textContent = "恭喜!已刮 " + count + " 張 🎉"; nextBtn.disabled = false; confetti();
+  if(db && current){ try{ db.collection("plays").add({e:current.e||"", t:current.t, at:Date.now()}).catch(()=>{}); }catch(_){} }
+}
+function confetti(){
+  const em = ["💖","✨","🎉","🌸","⭐","💕"];
+  for(let i=0;i<26;i++){
+    const s = document.createElement("span"); s.className = "fx";
+    s.textContent = em[i%em.length]; s.style.left = Math.random()*100+"vw";
+    s.style.animationDelay = Math.random()*.6+"s"; document.body.appendChild(s);
+    setTimeout(()=>s.remove(),3200);
+  }
+}
+cv.addEventListener("pointerdown",e=>{if(revealed) return; drawing = true; last = pos(e); cv.setPointerCapture(e.pointerId); scratch(e)});
+cv.addEventListener("pointermove",scratch);
+["pointerup","pointercancel"].forEach(t=>cv.addEventListener(t,()=>{if(drawing&&!revealed) check(); drawing = false}));
+nextBtn.addEventListener("click",newCard);
+window.addEventListener("resize",()=>{if(!revealed&&moves===0) paint()});
+
+/* ---------- 後台 ---------- */
+function addRow(p){
+  const row = document.createElement("div"); row.className = "row";
+  const e = document.createElement("input"); e.value = p.e||""; e.maxLength = 4; e.placeholder = "😀";
+  const t = document.createElement("input"); t.value = p.t||""; t.maxLength = 30; t.placeholder = "獎品名稱";
+  const w = document.createElement("input"); w.type = "number"; w.min = 0; w.max = 99; w.value = p.w ?? 1;
+  const d = document.createElement("button"); d.textContent = "✕"; d.onclick = () => row.remove();
+  row.append(e,t,w,d); $("rows").appendChild(row);
+}
+function renderRows(){ $("rows").textContent = ""; cfg.prizes.forEach(addRow); $("aTitle").value = cfg.title; $("aSub").value = cfg.subtitle; }
+function readForm(){
+  const prizes = [...$("rows").children].map(r => {
+    const [e,t,w] = r.querySelectorAll("input");
+    return {e:e.value.trim(), t:t.value.trim(), w:Math.max(0,Number(w.value)||0)};
+  }).filter(p => p.t);
+  return {title:$("aTitle").value.trim()||DEFAULT.title, subtitle:$("aSub").value.trim(), prizes};
+}
+async function loadHist(){
+  if(!db) return;
+  try{
+    const s = await db.collection("plays").orderBy("at","desc").limit(20).get();
+    const box = $("hist"); box.textContent = "";
+    if(!s.docs.length){ box.textContent = "尚無紀錄"; return; }
+    s.docs.forEach(d => { const x = d.data(), el = document.createElement("div");
+      el.textContent = new Date(x.at).toLocaleString("zh-TW",{hour12:false}) + "  " + (x.e||"") + " " + x.t; box.appendChild(el); });
+  }catch(_){}
+}
+$("adminBtn").onclick = () => { const a = $("admin"); a.hidden = !a.hidden; if(!a.hidden){ renderRows(); loadHist(); a.scrollIntoView({behavior:"smooth"}); } };
+$("addRow").onclick = () => addRow({e:"🎁",t:"",w:1});
+$("resetBtn").onclick = () => { cfg = JSON.parse(JSON.stringify(DEFAULT)); renderRows(); $("status").textContent = "已還原預設,記得按儲存"; };
+$("saveBtn").onclick = async () => {
+  const next = readForm();
+  if(!next.prizes.length){ $("status").textContent = "至少需要一個獎品"; return; }
+  try{
+    await db.doc("config/main").set(next);
+    cfg = next; applyText(); if(moves===0) newCard();
+    $("status").textContent = "已儲存 ✓";
+  }catch(err){ $("status").textContent = "儲存失敗:" + (err && err.code || "未知錯誤"); }
+};
+
+async function init(){
+  applyText(); newCard();
+  if(!(window.claude && claude.use)) return;
+  try{
+    db = await claude.use("db");
+    const user = await claude.use("user");
+    if(db){
+      const s = await db.doc("config/main").get();
+      if(s.exists){ const d = s.data(); cfg = {title:d.title||DEFAULT.title, subtitle:d.subtitle||"", prizes:Array.isArray(d.prizes)&&d.prizes.length?d.prizes:DEFAULT.prizes}; applyText(); if(moves===0&&!revealed) newCard(); }
+    }
+    if(db && user){ isAdmin = (await user.isOwner()) || (await user.canEdit()); $("adminBtn").hidden = !isAdmin; }
+  }catch(_){}
+}
+init();
+</script>
+</body>
+</html>
