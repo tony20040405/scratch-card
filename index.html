@@ -196,7 +196,8 @@ function paint(){
   ctx.font = "13px system-ui,sans-serif"; ctx.fillText("今天會抽到什麼呢?", r.width/2, r.height/2+18);
 }
 function newCard(){
-  wrap.classList.remove("win"); cv.classList.remove("done"); revealed = false; moves = 0;
+  wrap.classList.remove("win"); revealed = false; moves = 0;
+  cv.style.transition = "none"; cv.classList.remove("done"); paint(); void cv.offsetWidth; cv.style.transition = "";
   if(left()<=0){
     $("bd").textContent = "休息中"; wrap.style.setProperty("--tc","#9b6b7d");
     $("pe").textContent = "🌙"; $("pt").textContent = "今天的刮刮樂用完囉"; $("pn").textContent = "明天再來,會有新的驚喜";
@@ -206,7 +207,7 @@ function newCard(){
   const T = TIER[cur.r]||TIER.N;
   wrap.style.setProperty("--tc",T.c); $("bd").textContent = T.n;
   $("pe").textContent = cur.e||"🎁"; $("pt").textContent = cur.t; $("pn").textContent = (cur.n||"") + (cfg.fromName?` — ${cfg.fromName}`:"");
-  nextBtn.disabled = true; info.textContent = count ? `這次已刮 ${count} 張` : "用手指刮開看看 👆"; paint(); chips();
+  nextBtn.disabled = true; info.textContent = count ? `這次已刮 ${count} 張` : "用手指刮開看看 👆"; chips();
 }
 const pos = e => { const r = cv.getBoundingClientRect(); return {x:e.clientX-r.left,y:e.clientY-r.top}; };
 function spark(p){
