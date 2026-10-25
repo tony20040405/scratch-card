@@ -50,6 +50,20 @@ button.g{background:var(--card);color:var(--accent);border:1.5px solid var(--acc
 @keyframes fall{to{transform:translateY(112vh) rotate(420deg);opacity:.5}}
 textarea{width:100%;height:240px;background:var(--b1);color:var(--fg);border:1px solid var(--line);border-radius:10px;padding:8px;font:12px/1.4 monospace}
 [hidden]{display:none!important}
+html[data-theme=night]{--b1:#14122b;--b2:#1d1a42;--b3:#2a1b4d;--fg:#ece8ff;--card:#221f45;--muted:#a9a3d6;--accent:#9d8cff;--line:#3a3570}
+html[data-theme=peach]{--b1:#fff1e0;--b2:#ffd9b8;--b3:#ffc7c7;--fg:#4a2a1a;--card:#fff;--muted:#a8765a;--accent:#ff7a45;--line:#ffd6b5}
+html[data-theme=mint]{--b1:#e3fff3;--b2:#c9f5e3;--b3:#d5e8ff;--fg:#17382d;--card:#fff;--muted:#5f9b86;--accent:#1fb58a;--line:#bfe8d6}
+#md{position:fixed;inset:0;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;z-index:20;padding:18px}
+#md .box{background:var(--card);border-radius:20px;padding:22px;max-width:340px;width:100%;max-height:85vh;overflow:auto;text-align:center;border:3px solid var(--accent)}
+#md .box img{max-width:100%;border-radius:12px;margin:8px 0}
+#mdN{white-space:pre-wrap;line-height:1.7;margin:8px 0 14px;text-align:left}
+#toast{position:fixed;bottom:calc(env(safe-area-inset-bottom,0px) + 24px);left:50%;transform:translate(-50%,20px);background:var(--accent);color:#fff;padding:10px 18px;border-radius:999px;font-size:.9rem;opacity:0;transition:.4s;z-index:30;pointer-events:none;max-width:90vw}
+#toast.show{opacity:1;transform:translate(-50%,0)}
+.wheelbox{position:relative;width:260px;margin:10px auto}
+.ptr{position:absolute;top:-8px;left:50%;margin-left:-11px;border:11px solid transparent;border-top:22px solid var(--accent);z-index:2}
+#wc{width:260px;height:260px;border-radius:50%;box-shadow:0 8px 24px rgba(0,0,0,.2);transition:transform 4.2s cubic-bezier(.12,.7,.1,1)}
+.bdg{display:inline-block;margin:3px;padding:4px 10px;border-radius:999px;border:1.5px solid var(--accent);font-size:.8rem}
+.bdg.off{opacity:.35;filter:grayscale(1)}
 </style>
 </head>
 <body>
@@ -65,6 +79,8 @@ textarea{width:100%;height:240px;background:var(--b1);color:var(--fg);border:1px
   <button id="next" disabled>再刮一張 🎟️</button>
   <button class="g" id="colBtn">🎒 收藏冊</button>
   <button class="g" id="snd">🔊</button>
+  <button class="g" id="whBtn">🎡 小轉盤</button>
+  <button class="g" id="thBtn">🎨</button>
   <button class="g" id="admBtn" hidden>⚙️</button>
 </div>
 
@@ -72,8 +88,18 @@ textarea{width:100%;height:240px;background:var(--b1);color:var(--fg);border:1px
   <h2>🎒 我的收藏冊 <span id="prog"></span></h2>
   <div class="hint">刮到的獎品都會收進來,按「兌換」就是跟他使用這張券囉(記得截圖給他看 📸)。</div>
   <div class="grid" id="grid"></div>
+  <div class="hint" style="margin-top:12px">成就徽章</div><div id="ach"></div>
 </section>
 
+<section class="panel" id="wh" hidden>
+  <h2>🎡 小轉盤 <span class="hint" id="wl"></span></h2>
+  <div class="hint">轉到的小獎也會收進收藏冊,還有機會多送一張刮刮卡。</div>
+  <div class="wheelbox"><div class="ptr"></div><canvas id="wc" width="300" height="300"></canvas></div>
+  <div class="btns"><button id="spin">轉!</button></div>
+  <div class="hint" id="wres" style="text-align:center;margin-top:8px"></div>
+</section>
+<div id="md" hidden><div class="box"><div style="font-size:2.6rem" id="mdE"></div><h2 id="mdT"></h2><img id="mdI" alt="" hidden><div id="mdN"></div><button id="mdX">收下 💖</button></div></div>
+<div id="toast"></div>
 <section class="panel" id="adm" hidden>
   <h2>⚙️ 後台(只存在這支瀏覽器)</h2>
   <div class="hint">直接編輯下面的設定。r 是稀有度 N/R/E/L(普通/稀有/史詩/傳說),w 是權重,n 是中獎時顯示的小語。dailyLimit 為 0 代表不限張數。</div>
@@ -95,6 +121,20 @@ const DEFAULT = {
   startDate: "2025-11-11",
   anniversary: "2026-11-11",
   dailyLimit: 3,
+  wheelLimit: 1,
+  photo: "",
+  letter: "寶鼻,謝謝妳一直在我身邊。\n不管多忙,回頭都有妳,這就是我最大的幸運。\n(這段話請到檔案或後台改成你自己想說的)",
+  anniversaryNote: "一年了。謝謝妳陪我走過每一天,接下來也請多多指教 💖",
+  wheel: [
+    {e:"🎟️", t:"加刮一張", bonus:1, w:2},
+    {e:"🤗", t:"抱抱 +1", w:3},
+    {e:"😘", t:"親親 +1", w:3},
+    {e:"🧋", t:"小點心一份", w:2},
+    {e:"🎵", t:"我唱一首給妳", w:2},
+    {e:"💬", t:"聽我說一句甜話", w:3},
+    {e:"📸", t:"拍張合照", w:2},
+    {e:"💖", t:"愛妳一次", w:2}
+  ],
   prizes: [
     {"e": "🤗", "t": "超大擁抱一次", "n": "抱緊處理,電量充飽 100%", "r": "N", "w": 5},
     {"e": "😘", "t": "親親一個", "n": "限時限量,現場兌現", "r": "N", "w": 5},
@@ -119,15 +159,32 @@ const DEFAULT = {
     {"e": "🎂", "t": "一週年紀念大禮", "n": "一年了,謝謝妳一直在", "r": "L", "w": 0.8},
     {"e": "🗝️", "t": "無限期願望券", "n": "任何時候都能用,我說到做到", "r": "L", "w": 0.6},
     {"e": "🏖️", "t": "兩天一夜小旅行", "n": "地點妳選,行程我排", "r": "L", "w": 0.5},
-    {"e": "👑", "t": "當一天公主", "n": "今天所有事情都交給我", "r": "L", "w": 0.7}
+    {"e": "👑", "t": "當一天公主", "n": "今天所有事情都交給我", "r": "L", "w": 0.7},
+    {"e": "🎤", "t": "點歌我唱一首", "n": "五音不全也要唱完", "r": "N", "w": 5},
+    {"e": "🫶", "t": "比愛心合照一張", "n": "隨時隨地,說比就比", "r": "N", "w": 5},
+    {"e": "🍬", "t": "零食補給一包", "n": "想吃什麼我去買", "r": "N", "w": 5},
+    {"e": "🧸", "t": "夾娃娃機一次", "n": "夾到算妳的,夾不到算我的", "r": "N", "w": 5},
+    {"e": "🛋️", "t": "今天家事全免", "n": "妳負責躺著", "r": "N", "w": 5},
+    {"e": "💬", "t": "聽妳碎念 10 分鐘", "n": "不插嘴、不滑手機", "r": "N", "w": 5},
+    {"e": "🐶", "t": "學動物叫一次", "n": "指定動物,我學到妳笑為止", "r": "N", "w": 5},
+    {"e": "🥊", "t": "挑戰我一局", "n": "妳贏了有獎,輸了我請喝飲料", "r": "R", "w": 3},
+    {"e": "🧁", "t": "親手做點心", "n": "賣相不保證,心意滿分", "r": "R", "w": 3},
+    {"e": "🌃", "t": "夜景散步約會", "n": "牽手走一圈,什麼都不用做", "r": "R", "w": 3},
+    {"e": "🎁", "t": "神祕小禮物", "n": "拆開之前不能問", "r": "R", "w": 3},
+    {"e": "🛁", "t": "泡腳放鬆一次", "n": "水我來接,毛巾我來拿", "r": "R", "w": 3},
+    {"e": "🎢", "t": "遊樂園一日約會", "n": "妳想玩哪個,我都陪", "r": "E", "w": 2},
+    {"e": "🍣", "t": "指定餐廳吃大餐", "n": "預算我先準備好", "r": "E", "w": 2},
+    {"e": "🌸", "t": "一束花", "n": "花店隨妳挑", "r": "E", "w": 2},
+    {"e": "🗓️", "t": "一日行程我全包", "n": "從早到晚,我來安排", "r": "L", "w": 0.6},
+    {"e": "🌈", "t": "沒有理由的驚喜", "n": "什麼時候來,連我都要想一想", "r": "L", "w": 0.5}
   ]
 };
-const TIER = {N:{n:"普通",c:"#6f93b8",k:18,s:[660,880]}, R:{n:"稀有",c:"#2f8cff",k:30,s:[523,659,784]}, E:{n:"史詩",c:"#a24dff",k:46,s:[523,659,784,1047]}, L:{n:"傳說",c:"#ff9d00",k:80,s:[523,659,784,1047,1319,1568]}};
+const TIER = {W:{n:"轉盤",c:"#ff5fa2",k:24,s:[784,988]}, N:{n:"普通",c:"#6f93b8",k:18,s:[660,880]}, R:{n:"稀有",c:"#2f8cff",k:30,s:[523,659,784]}, E:{n:"史詩",c:"#a24dff",k:46,s:[523,659,784,1047]}, L:{n:"傳說",c:"#ff9d00",k:80,s:[523,659,784,1047,1319,1568]}};
 const REVEAL_AT = 0.55;
 const $ = id => document.getElementById(id);
 let cfg = JSON.parse(JSON.stringify(DEFAULT));
 try{ const c = JSON.parse(localStorage.getItem("scCfg")||"null"); if(c && Array.isArray(c.prizes) && c.prizes.length) cfg = Object.assign(cfg,c); }catch(_){}
-let ST = {days:{},got:{},pending:null};
+let ST = {days:{},got:{},pending:null,sp:{},recent:[],streak:{d:"",n:0},bonus:{d:"",n:0},miss:0,ach:{},wheel:{},spins:0,theme:0};
 try{ Object.assign(ST, JSON.parse(localStorage.getItem("sc2")||"{}")); }catch(_){}
 const save = () => { try{ localStorage.setItem("sc2",JSON.stringify(ST)); }catch(_){} };
 const tk = () => new Date().toLocaleDateString("sv");
@@ -150,28 +207,29 @@ function chips(){
   if(cfg.startDate){ const d = Math.floor((t - day0(cfg.startDate))/864e5); if(d>=0) c.push(`💞 在一起 <b>${d}</b> 天`); }
   if(cfg.anniversary){ const d = Math.round((day0(cfg.anniversary) - t)/864e5);
     c.push(d>0 ? `🎂 一週年倒數 <b>${d}</b> 天` : d===0 ? `🎉 <b>今天是紀念日!</b>` : ""); }
+  if(ST.streak.n>1) c.push(`🔥 連續 <b>${ST.streak.n}</b> 天`);
   if(cfg.dailyLimit>0) c.push(`🎟️ 今日剩 <b>${left()}</b> 張`);
   $("chips").innerHTML = c.filter(Boolean).map(x=>`<span class="chip">${x}</span>`).join("");
 }
-const left = () => cfg.dailyLimit>0 ? Math.max(0,cfg.dailyLimit-(ST.days[tk()]||0)) : Infinity;
+const left = () => cfg.dailyLimit>0 ? Math.max(0,cfg.dailyLimit+(ST.bonus.d===tk()?ST.bonus.n:0)-(ST.days[tk()]||0)) : Infinity;
 function applyText(){
   $("title").textContent = cfg.herName ? `💖 給${cfg.herName}的專屬刮刮樂` : cfg.title;
   $("sub").textContent = cfg.subtitle; chips();
 }
 function colGrid(){
   const g = $("grid"); g.textContent = ""; let have = 0;
-  cfg.prizes.forEach(p => {
+  allList().forEach(p => {
     const rec = ST.got[p.t], T = TIER[p.r]||TIER.N, it = document.createElement("div");
     it.className = "it" + (rec?"":" lock"); it.style.setProperty("--c",T.c);
     if(rec){ have++; const rest = rec.n-(rec.u||0);
       it.innerHTML = `<div class="e"></div><b></b><small>${T.n} ・ 持有 ${rest} 張</small>`;
       it.children[0].textContent = p.e; it.children[1].textContent = p.t;
       const b = document.createElement("button"); b.textContent = rest>0 ? "兌換" : "已用完"; b.disabled = rest<=0;
-      b.onclick = () => { rec.u = (rec.u||0)+1; save(); colGrid(); }; it.appendChild(b);
+      b.onclick = () => { rec.u = (rec.u||0)+1; save(); colGrid(); share(p); }; it.appendChild(b);
     } else it.innerHTML = `<div class="e">❓</div><b>???</b><small>${T.n}</small>`;
     g.appendChild(it);
   });
-  $("prog").textContent = `${have}/${cfg.prizes.length}`;
+  $("prog").textContent = `${have}/${allList().length}`; renderAch();
 }
 $("colBtn").onclick = () => { $("col").hidden = !$("col").hidden; if(!$("col").hidden){ colGrid(); $("col").scrollIntoView({behavior:"smooth"}); } };
 
@@ -179,7 +237,11 @@ $("colBtn").onclick = () => { $("col").hidden = !$("col").hidden; if(!$("col").h
 const cv = $("cv"), ctx = cv.getContext("2d"), wrap = $("wrap"), nextBtn = $("next"), info = $("info");
 let drawing = false, revealed = false, last = null, moves = 0, cur = null, count = 0, lastNoise = 0;
 function pick(){
-  const pool = cfg.prizes.filter(p=>p.t && Number(p.w)>0);
+  if(cfg.anniversary && Math.abs(Math.round((day0(cfg.anniversary)-todayD())/864e5))<=1 && !ST.sp[cfg.anniversary]) return specialObj();
+  if(cfg.letter && Math.random()<.04) return letterObj();
+  let pool = cfg.prizes.filter(p=>p.t && Number(p.w)>0);
+  const rc = ST.recent||[], fresh = pool.filter(p=>!rc.includes(p.t)); if(fresh.length) pool = fresh;
+  if(ST.miss>=4){ const hi = pool.filter(p=>p.r!=="N"); if(hi.length) pool = hi; }
   let r = Math.random()*pool.reduce((s,p)=>s+Number(p.w),0);
   for(const p of pool){ r -= Number(p.w); if(r<=0) return p; } return pool[pool.length-1];
 }
@@ -203,7 +265,7 @@ function newCard(){
     $("pe").textContent = "🌙"; $("pt").textContent = "今天的刮刮樂用完囉"; $("pn").textContent = "明天再來,會有新的驚喜";
     cv.classList.add("done"); nextBtn.disabled = true; info.textContent = "好好休息,明天見 💤"; chips(); return;
   }
-  cur = cfg.prizes.find(p=>p.t===ST.pending) || pick(); ST.pending = cur.t; save();
+  cur = findDef(ST.pending) || pick(); ST.pending = cur.t; save();
   const T = TIER[cur.r]||TIER.N;
   wrap.style.setProperty("--tc",T.c); $("bd").textContent = T.n;
   $("pe").textContent = cur.e||"🎁"; $("pt").textContent = cur.t; $("pn").textContent = (cur.n||"") + (cfg.fromName?` — ${cfg.fromName}`:"");
@@ -233,6 +295,10 @@ function reveal(){
   ST.pending = null; ST.days[tk()] = (ST.days[tk()]||0)+1;
   const g = ST.got[cur.t] || (ST.got[cur.t] = {n:0,u:0}); g.n++; save();
   const T = TIER[cur.r]||TIER.N; chime(cur.r||"N"); confetti(T);
+  ST.recent = (ST.recent||[]).concat(cur.t).slice(-9);
+  if(cur.special) ST.sp[cfg.anniversary] = 1;
+  ST.miss = (cur.r==="N" && !cur.letter && !cur.special) ? ST.miss+1 : 0; save(); checkAch();
+  if(cur.letter||cur.special||cur.img) setTimeout(()=>showModal(cur),1100);
   info.textContent = `🎉 恭喜抽到【${T.n}】獎品!` + (left()===0?" 今天的卡用完囉":""); nextBtn.disabled = left()<=0; chips();
   if(!$("col").hidden) colGrid();
 }
@@ -272,7 +338,80 @@ $("saveCfg").onclick = () => {
 $("resetCfg").onclick = () => { localStorage.removeItem("scCfg"); location.reload(); };
 $("clrRec").onclick = () => { if(confirm("要清除這支瀏覽器的抽獎紀錄嗎?")){ localStorage.removeItem("sc2"); location.reload(); } };
 
-applyText(); newCard();
+/* ---------- 新功能 ---------- */
+let loginMsg = "", wAng = 0, spinning = false, tt = 0;
+const letterObj = () => ({e:"💌",t:"情書卡",n:"有一封信要給妳,點開來看 💌",r:"E",letter:true});
+const specialObj = () => ({e:"🎂",t:"紀念日特別卡",n:"今天是我們的日子 💖",r:"L",special:true});
+const wlist = () => (cfg.wheel||[]).map(w=>Object.assign({r:"W"},w));
+const allList = () => cfg.prizes.concat(wlist());
+const findDef = t => allList().concat([letterObj(),specialObj()]).find(p=>p.t===t);
+function toast(m){ const e = $("toast"); e.textContent = m; e.classList.add("show"); clearTimeout(tt); tt = setTimeout(()=>e.classList.remove("show"),3200); }
+function share(p){
+  const text = `我要兌換:${p.e} ${p.t} 🎟️`;
+  if(navigator.share) navigator.share({text}).catch(()=>{});
+  else { try{ navigator.clipboard.writeText(text); toast("已複製兌換訊息,貼給他吧 📋"); }catch(_){ toast(text); } }
+}
+function showModal(p){
+  const txt = p.letter ? cfg.letter : p.special ? cfg.anniversaryNote : (p.n||""), img = p.img || ((p.letter||p.special)&&cfg.photo) || "", im = $("mdI");
+  $("mdE").textContent = p.e; $("mdT").textContent = p.t; $("mdN").textContent = txt;
+  im.hidden = !img; if(img){ im.src = img; im.onerror = () => im.hidden = true; } $("md").hidden = false;
+}
+$("mdX").onclick = () => $("md").hidden = true;
+const ACH = [
+  ["first","🌱","初次刮卡",()=>Object.keys(ST.got).length>0],
+  ["leg","👑","傳說降臨",()=>cfg.prizes.some(p=>p.r==="L"&&ST.got[p.t])],
+  ["allN","🧸","集滿普通獎",()=>cfg.prizes.filter(p=>p.r==="N").every(p=>ST.got[p.t])],
+  ["all","🏆","全圖鑑",()=>allList().every(p=>ST.got[p.t])],
+  ["s7","🔥","連續 7 天",()=>ST.streak.n>=7],
+  ["spin","🎡","轉盤達人",()=>ST.spins>=5],
+  ["let","💌","收到情書",()=>!!ST.got["情書卡"]]
+];
+function checkAch(){ ACH.forEach(([id,e,n,f])=>{ if(!ST.ach[id] && f()){ ST.ach[id] = 1; save(); toast(`🏅 解鎖成就:${e} ${n}`); } }); }
+function renderAch(){ $("ach").innerHTML = ACH.map(([id,e,n])=>`<span class="bdg${ST.ach[id]?"":" off"}">${e} ${n}</span>`).join(""); }
+function login(){
+  const t = tk(), y = new Date(Date.now()-864e5).toLocaleDateString("sv");
+  if(ST.streak.d !== t){
+    ST.streak.n = ST.streak.d===y ? ST.streak.n+1 : 1; ST.streak.d = t;
+    if(ST.streak.n===3 || ST.streak.n%7===0){ ST.bonus = {d:t,n:(ST.bonus.d===t?ST.bonus.n:0)+1}; loginMsg = `🔥 連續 ${ST.streak.n} 天!今天多送 1 張`; }
+    save();
+  }
+}
+const THEMES = ["","night","peach","mint"];
+const applyTheme = () => { document.documentElement.dataset.theme = THEMES[ST.theme||0]; };
+$("thBtn").onclick = () => { ST.theme = ((ST.theme||0)+1)%THEMES.length; save(); applyTheme(); };
+
+const WCOL = ["#ffd1dc","#ffe9a8","#cde7ff","#d9f5d0","#e6d4ff","#ffd9b8"];
+const wheelLeft = () => Math.max(0,(cfg.wheelLimit||1)-(ST.wheel[tk()]||0));
+function drawWheel(){
+  const x = $("wc").getContext("2d"), L = wlist(), n = L.length||1, g = 2*Math.PI/n; x.clearRect(0,0,300,300);
+  L.forEach((w,i)=>{
+    x.beginPath(); x.moveTo(150,150); x.arc(150,150,146,-Math.PI/2+i*g,-Math.PI/2+(i+1)*g); x.closePath();
+    x.fillStyle = WCOL[i%WCOL.length]; x.fill(); x.strokeStyle = "#fff"; x.lineWidth = 3; x.stroke();
+    x.save(); x.translate(150,150); x.rotate(-Math.PI/2+(i+.5)*g); x.font = "30px serif"; x.textAlign = "center"; x.textBaseline = "middle"; x.fillText(w.e,100,0); x.restore();
+  });
+}
+function wheelUI(){ $("wl").textContent = `今日可轉 ${wheelLeft()} 次`; $("spin").disabled = spinning || wheelLeft()<=0; }
+$("whBtn").onclick = () => { $("wh").hidden = !$("wh").hidden; if(!$("wh").hidden){ drawWheel(); wheelUI(); $("wh").scrollIntoView({behavior:"smooth"}); } };
+$("spin").onclick = () => {
+  const L = wlist(); if(spinning || wheelLeft()<=0 || !L.length) return;
+  if(!AC){ try{ AC = new (window.AudioContext||window.webkitAudioContext)(); }catch(_){} }
+  let r = Math.random()*L.reduce((s,w)=>s+Number(w.w||1),0), idx = L.length-1;
+  for(let i=0;i<L.length;i++){ r -= Number(L[i].w||1); if(r<=0){ idx = i; break; } }
+  const seg = 360/L.length, center = (idx+.5)*seg + (Math.random()-.5)*seg*.6;
+  spinning = true; $("wres").textContent = "轉轉轉…"; wheelUI();
+  wAng = Math.floor(wAng/360)*360 + 360*5 + (360-center); $("wc").style.transform = `rotate(${wAng}deg)`;
+  for(let i=0;i<14;i++) beep(900-i*30,i*.25,.05,"square",.03);
+  setTimeout(()=>{ spinning = false; award(L[idx]); },4300);
+};
+function award(w){
+  const g = ST.got[w.t] || (ST.got[w.t] = {n:0,u:0}); g.n++;
+  if(w.bonus){ ST.bonus = {d:tk(),n:(ST.bonus.d===tk()?ST.bonus.n:0)+w.bonus}; }
+  ST.wheel[tk()] = (ST.wheel[tk()]||0)+1; ST.spins++; save();
+  $("wres").textContent = `${w.e} 轉到:${w.t}` + (w.bonus?"(今天多一張刮刮卡!)":""); chime("R"); confetti(TIER.W);
+  wheelUI(); chips(); checkAch(); if(!$("col").hidden) colGrid(); if(w.bonus && left()>0 && cv.classList.contains("done")) nextBtn.disabled = false;
+}
+
+login(); applyTheme(); applyText(); newCard(); checkAch(); if(loginMsg) setTimeout(()=>toast(loginMsg),600);
 </script>
 </body>
 </html>
